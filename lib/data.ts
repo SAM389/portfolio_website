@@ -6,7 +6,7 @@ export const profile = {
   name: "Belim Safwan Khan",
   role: "Full-Stack Engineer · Gen AI",
   tagline:
-    "I ship production web and mobile products end to end: Next.js, PostgreSQL, auth, real-time and AI.",
+    "Full-stack engineer building Gen AI into products people actually use: Next.js, PostgreSQL, real-time and LLMs.",
   location: "Ahmedabad, India",
   availability: "Open to relocation & remote",
   timeZone: "Asia/Kolkata",
