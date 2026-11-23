@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# source screen recording for the bat sprite (regenerate with scripts/make-bat-sprite.mjs)
+pixel_bat.mp4

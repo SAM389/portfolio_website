@@ -1,26 +1,449 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Desktop bento on a short laptop screen (e.g. 1366×768, 1280×720): the grid is one screen tall,
+   so tiles get less height and need tighter spacing. Use as e.g. `short:mt-2` (Tile trims its padding with it). */
+@custom-variant short (@media (min-width: 64rem) and (max-height: 820px));
+
+/* ── Design tokens ─────────────────────────────────────────── */
+/* "static" keeps every colour variable in the CSS, because tiles pick them by name at runtime. */
+@theme static {
+  /* One colour: leaf green, from light tint to deep shade, on a black page. */
+  --color-leaf-50: #eef9f0;
+  --color-leaf-100: #d2efd7;
+  --color-leaf-200: #a9dcb3;
+  --color-leaf-400: #6fbf7f;
+  --color-leaf-600: #3e8a4e;
+  --color-leaf-800: #183d22;
+  --color-ink: #0d2414;
+  --color-ink-soft: #24492f;
+  --color-cream: var(--color-leaf-50);
+
+  /* The one accent: warm amber, only for things that should catch the eye first
+     (open-to-work, live, primary buttons, rewards). Keep it rare. */
+  --color-amber-100: #fff3cc;
+  --color-amber-300: #ffd35c;
+  --color-amber-400: #f6b93b;
+  --color-amber-600: #b87a14;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-pixelify);
+  --font-sans: var(--font-plex-sans);
+  --font-pixel: var(--font-plex-mono);
+  --font-term: var(--font-vt323);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ── Pixel frames ──────────────────────────────────────────── */
+/* Every box is drawn with hard box-shadows, no blur and no curves:
+   - one ink ring per side, so the corners come out notched like old game UI;
+   - a light inset on the top-left and a dark inset on the bottom-right (the bevel);
+   - a solid base or drop shadow underneath.
+   Each utility sets its own default --tone. Override it with toneVar() from components/Tile.tsx. */
+@utility pixel {
+  --tone: var(--color-leaf-400);
+  --px: 4px;
+  --drop: var(--color-leaf-800);
+  background: var(--tone);
+  box-shadow:
+    inset var(--px) var(--px) 0 0 rgb(255 255 255 / 0.3),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 rgb(8 32 16 / 0.22),
+    0 calc(var(--px) * -1) 0 0 var(--color-ink),
+    0 var(--px) 0 0 var(--color-ink),
+    calc(var(--px) * -1) 0 0 0 var(--color-ink),
+    var(--px) 0 0 0 var(--color-ink),
+    var(--px) calc(var(--px) * 2) 0 0 var(--drop),
+    calc(var(--px) * 2) var(--px) 0 0 var(--drop);
+}
+
+/* Small raised block (chips, buttons). --lift is the height of its base. */
+@utility pixel-sm {
+  --tone: var(--color-leaf-100);
+  --px: 3px;
+  --lift: 3px;
+  background: var(--tone);
+  box-shadow:
+    inset var(--px) var(--px) 0 0 rgb(255 255 255 / 0.45),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 rgb(8 32 16 / 0.18),
+    0 calc(var(--px) * -1) 0 0 var(--color-ink),
+    0 calc(var(--px) + var(--lift)) 0 0 var(--color-ink),
+    calc(var(--px) * -1) 0 0 0 var(--color-ink),
+    var(--px) 0 0 0 var(--color-ink);
+}
+
+/* Sunken panel: dark on the top-left, light on the bottom-right. */
+@utility pixel-well {
+  --tone: var(--color-leaf-100);
+  --px: 3px;
+  background: var(--tone);
+  box-shadow:
+    inset var(--px) var(--px) 0 0 rgb(8 32 16 / 0.2),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 rgb(255 255 255 / 0.55),
+    0 calc(var(--px) * -1) 0 0 var(--color-ink),
+    0 var(--px) 0 0 var(--color-ink),
+    calc(var(--px) * -1) 0 0 0 var(--color-ink),
+    var(--px) 0 0 0 var(--color-ink);
+}
+
+/* Keycap: sinks onto its base when hovered. */
+@utility pixel-key {
+  --tone: var(--color-leaf-100);
+  --px: 3px;
+  --lift: 4px;
+  background: var(--tone);
+  box-shadow:
+    inset var(--px) var(--px) 0 0 rgb(255 255 255 / 0.5),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 rgb(8 32 16 / 0.16),
+    0 calc(var(--px) * -1) 0 0 var(--color-ink),
+    0 calc(var(--px) + var(--lift)) 0 0 var(--color-ink),
+    calc(var(--px) * -1) 0 0 0 var(--color-ink),
+    var(--px) 0 0 0 var(--color-ink);
+  transition:
+    transform 0.12s steps(2),
+    box-shadow 0.12s steps(2);
+  &:hover {
+    --lift: 0px;
+    transform: translateY(4px);
   }
 }
 
+/* Pressable block (use with pixel-sm): rises on hover, lands on its base when pressed.
+   The base grows or shrinks by the same amount, so the bottom edge never moves. */
+@utility pixel-press {
+  cursor: pointer;
+  transition:
+    transform 0.12s steps(2),
+    box-shadow 0.12s steps(2);
+  &:hover {
+    --lift: 5px;
+    transform: translateY(-2px);
+  }
+  &:active {
+    --lift: 0px;
+    transform: translateY(3px);
+  }
+  &:focus-visible {
+    outline: 3px solid var(--color-cream);
+    outline-offset: 8px;
+  }
+}
+
+/* ── Bento tiles ───────────────────────────────────────────── */
+/* The entrance is smooth on purpose: stepped timing on blocks this big reads as a low
+   frame rate, not as retro. It only moves (no scale), so the pixel edges stay crisp,
+   and it runs on the compositor (transform + opacity only). */
+.tile {
+  container-type: inline-size;
+  animation: pixel-pop 0.5s cubic-bezier(0.22, 1.4, 0.36, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 55ms + 40ms);
+  transition: transform 0.18s cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+.tile:hover {
+  transform: translateY(-4px);
+}
+
+@keyframes pixel-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  45% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Small animations (played with steps() for a pixel feel) ── */
+@keyframes float {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes ping-soft {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes bump {
+  0% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-8px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Pixel bat ─────────────────────────────────────────────── */
+/* public/bat-sprite.png: 7 frames, each 126x117. */
+.bat {
+  --bat-w: 100px;
+  --bat-frames: 7;
+  width: var(--bat-w);
+  height: calc(var(--bat-w) * 117 / 126);
+  background: linear-gradient(160deg, var(--color-leaf-800), var(--color-ink) 60%);
+  mask-image: url("/bat-sprite.png");
+  mask-repeat: no-repeat;
+  mask-size: calc(var(--bat-w) * var(--bat-frames)) 100%;
+  image-rendering: pixelated;
+  animation: bat-flap 0.42s steps(7) infinite;
+}
+@media (max-width: 639px) {
+  .bat {
+    --bat-w: 76px;
+  }
+}
+.bat-fast .bat {
+  animation-duration: 0.24s;
+}
+@keyframes bat-flap {
+  to {
+    mask-position: calc(var(--bat-w) * var(--bat-frames) * -1) 0;
+  }
+}
+
+/* A hard 2px leaf outline around the bat, so it shows on the black page. */
+.bat-outline {
+  filter: drop-shadow(2px 0 0 var(--color-leaf-200)) drop-shadow(-2px 0 0 var(--color-leaf-200))
+    drop-shadow(0 2px 0 var(--color-leaf-200)) drop-shadow(0 -2px 0 var(--color-leaf-200));
+}
+
+.bat-bob {
+  animation: float 2.6s steps(4) infinite;
+}
+
+/* Click the bat: a loop around the screen and back to its perch. */
+.bat-flight {
+  animation: bat-fly 3.4s cubic-bezier(0.45, 0, 0.55, 1) forwards;
+}
+@keyframes bat-fly {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  12% {
+    transform: translate(18vw, 6vh) scale(1.1) rotate(8deg);
+  }
+  28% {
+    transform: translate(46vw, 30vh) scale(1.25) rotate(4deg);
+  }
+  42% {
+    transform: translate(72vw, 12vh) scale(1.1) rotate(-10deg);
+  }
+  56% {
+    transform: translate(60vw, 52vh) scale(1.35) rotate(-6deg);
+  }
+  70% {
+    transform: translate(30vw, 62vh) scale(1.2) rotate(8deg);
+  }
+  84% {
+    transform: translate(8vw, 28vh) scale(1.1) rotate(10deg);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+.bubble-in {
+  animation: pop-in 0.3s steps(3) both;
+}
+
+/* Five catches: the bat goes golden. */
+.bat-golden .bat {
+  background: linear-gradient(160deg, var(--color-amber-100), var(--color-amber-400) 45%, var(--color-amber-600));
+}
+.bat-golden.bat-outline {
+  filter: drop-shadow(2px 0 0 var(--color-ink)) drop-shadow(-2px 0 0 var(--color-ink))
+    drop-shadow(0 2px 0 var(--color-ink)) drop-shadow(0 -2px 0 var(--color-ink))
+    drop-shadow(2px 0 0 var(--color-amber-100)) drop-shadow(-2px 0 0 var(--color-amber-100))
+    drop-shadow(0 2px 0 var(--color-amber-100)) drop-shadow(0 -2px 0 var(--color-amber-100));
+}
+
+/* ── Boot screen ───────────────────────────────────────────── */
+/* Hidden unless the inline script in app/layout.tsx put data-boot on <html>.
+   While it shows, the page can't scroll and the tile pop-in waits. */
+.boot {
+  display: none;
+}
+html[data-boot] {
+  overflow: hidden;
+}
+html[data-boot] .boot {
+  display: flex;
+}
+/* data-boot="off" means the screen is switching off: let the tiles pop in behind it. */
+html[data-boot]:not([data-boot="off"]) .tile {
+  animation-play-state: paused;
+}
+/* CRT scanlines. */
+.boot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(transparent 0 2px, rgb(0 0 0 / 0.35) 2px 4px);
+}
+/* Switch-off: a bright flash, collapse to a line, shrink to a dot. */
+.boot-off {
+  animation: crt-off 0.5s steps(6) forwards;
+}
+.boot-off .boot-content {
+  visibility: hidden;
+}
+@keyframes crt-off {
+  0% {
+    transform: none;
+    background-color: #000;
+  }
+  25% {
+    transform: none;
+    background-color: var(--color-leaf-50);
+  }
+  60% {
+    transform: scale(1, 0.006);
+    background-color: var(--color-leaf-50);
+  }
+  90% {
+    transform: scale(0.15, 0.006);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0, 0.006);
+    opacity: 0;
+  }
+}
+
+/* ── Nav bar ───────────────────────────────────────────────── */
+/* Transparent at the top of the page. Once scrolled, a black band with a dithered
+   bottom edge sits behind the bar so tiles don't show through the gap above it. */
+.nav-shell {
+  animation: nav-drop-in 0.45s cubic-bezier(0.22, 1.4, 0.36, 1) backwards;
+}
+html[data-boot]:not([data-boot="off"]) .nav-shell {
+  animation-play-state: paused;
+}
+.nav-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 -8px;
+  z-index: -1;
+  opacity: 0;
+  background:
+    conic-gradient(#000 25%, transparent 0 50%, #000 0 75%, transparent 0) bottom / 4px 8px repeat-x,
+    linear-gradient(#000, #000) top / 100% calc(100% - 8px) no-repeat;
+  transition: opacity 0.2s steps(3);
+}
+.nav-scrolled::before {
+  opacity: 1;
+}
+@keyframes nav-drop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-24px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+.nav-link {
+  transition:
+    background-color 0.12s steps(2),
+    color 0.12s steps(2);
+}
+.nav-link-active {
+  animation: bump 0.3s steps(3);
+}
+.nav-drop {
+  animation: pop-in 0.2s steps(3) both;
+}
+.nav-drop-item {
+  animation: pop-in 0.24s steps(3) backwards;
+  animation-delay: calc(var(--i, 0) * 50ms + 60ms);
+}
+
+/* ── Modal (native <dialog>) ───────────────────────────────── */
+/* A dithered checkerboard instead of a blur. */
+dialog.pixel-modal::backdrop {
+  background-color: rgb(0 0 0 / 0.55);
+  background-image: conic-gradient(
+    rgb(0 0 0 / 0.6) 25%,
+    transparent 0 50%,
+    rgb(0 0 0 / 0.6) 0 75%,
+    transparent 0
+  );
+  background-size: 4px 4px;
+}
+dialog.pixel-modal[open] {
+  animation: pixel-pop 0.32s cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+
+/* ── Base ──────────────────────────────────────────────────── */
+html {
+  color-scheme: dark;
+  background: #000;
+  cursor: url("/cursor.svg") 0 0, auto;
+}
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100dvh;
+  background: #000;
+  color: var(--color-ink);
+}
+
+/* Hybrid type: body copy is the readable sans, but short punchy text (buttons, keys)
+   keeps the pixel face. The Toolbox keys opt out with font-sans. */
+/* (The profile photo sits inside pixel frames with padding so their bevel stays visible.) In the base layer, so a font-* utility on the element still wins. */
+@layer base {
+  button,
+  .pixel-press,
+  .pixel-key {
+    font-family: var(--font-display);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  /* Keep the bat on a wings-open frame instead of mid-flap. */
+  .bat {
+    animation: none !important;
+    mask-position: calc(var(--bat-w) * -2) 0;
+  }
 }
